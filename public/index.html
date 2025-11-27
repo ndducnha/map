@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Lucky Map – Đường đi may mắn phong thủy</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Photon Autocomplete CSS -->
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #fafafa;
+    }
+
+    #container {
+      width: 100%;
+      max-width: 980px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    #map {
+      width: 100%;
+      height: 360px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+
+    h2 {
+      margin-top: 0;
+      text-align: center;
+    }
+
+    .row {
+      margin-bottom: 12px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 17px;
+      background: #0a84ff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: .85;
+    }
+
+    /* Prediction list */
+    #autocomplete-origin, #autocomplete-destination {
+      position: absolute;
+      background: white;
+      border: 1px solid #ddd;
+      width: calc(100% - 22px);
+      max-height: 220px;
+      overflow-y: auto;
+      border-radius: 6px;
+      z-index: 9999;
+    }
+
+    .suggestion {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .suggestion:hover {
+      background: #f0f0f0;
+    }
+
+    /* Routes result */
+    .route-box {
+      background: #fff;
+      padding: 15px;
+      margin-top: 12px;
+      border-radius: 10px;
+      border-left: 6px solid #3c8bfd;
+    }
+
+    .best-route {
+      border-left-color: #ff5722 !important;
+      background: #fff5ef;
+    }
+  </style>
+</head>
+
+<body>
+<div id="container">
+  <h2>🔮 Xem đường đi may mắn theo phong thủy Huyền Không</h2>
+
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- Origin -->
+  <div class="row" style="position:relative;">
+    <label>Điểm đi:</label>
+    <input id="origin" placeholder="Nhập địa điểm đi...">
+    <div id="autocomplete-origin"></div>
+  </div>
+
+  <!-- Destination -->
+  <div class="row" style="position:relative;">
+    <label>Điểm đến:</label>
+    <input id="destination" placeholder="Nhập địa điểm đến...">
+    <div id="autocomplete-destination"></div>
+  </div>
+
+  <!-- Birth year -->
+  <div class="row">
+    <label>Năm sinh:</label>
+    <input id="birthYear" type="number" placeholder="VD: 1995">
+  </div>
+
+  <!-- Gender -->
+  <div class="row">
+    <label>Giới tính:</label>
+    <select id="gender">
+      <option value="male">Nam</option>
+      <option value="female">Nữ</option>
+    </select>
+  </div>
+
+  <!-- Vehicle -->
+  <div class="row">
+    <label>Phương tiện:</label>
+    <select id="vehicle">
+      <option value="driving">Xe máy / Xe hơi</option>
+      <option value="foot">Đi bộ</option>
+    </select>
+  </div>
+
+  <!-- DateTime -->
+  <div class="row">
+    <label>Thời điểm xuất phát:</label>
+    <input id="datetime" type="datetime-local">
+  </div>
+
+  <button onclick="getLuckyRoutes()">Xem đường may mắn</button>
+
+  <h3>Kết quả:</h3>
+  <div id="results"></div>
+</div>
+
+<script>
+/* =============================
+   MAP INIT
+   ============================= */
+let map = L.map("map").setView([10.776530, 106.700981], 13);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+let originMarker = null;
+let destinationMarker = null;
+
+/* =============================
+   CLICK MAP TO SELECT POINTS
+   ============================= */
+map.on("click", (e) => {
+  if (!originMarker) {
+    originMarker = L.marker(e.latlng).addTo(map);
+    document.getElementById("origin").value = `${e.latlng.lat},${e.latlng.lng}`;
+  } else if (!destinationMarker) {
+    destinationMarker = L.marker(e.latlng).addTo(map);
+    document.getElementById("destination").value = `${e.latlng.lat},${e.latlng.lng}`;
+  } else {
+    map.removeLayer(originMarker);
+    map.removeLayer(destinationMarker);
+    originMarker = L.marker(e.latlng).addTo(map);
+    destinationMarker = null;
+    document.getElementById("origin").value = `${e.latlng.lat},${e.latlng.lng}`;
+    document.getElementById("destination").value = "";
+  }
+});
+
+/* =============================
+   AUTOCOMPLETE PHOTON
+   ============================= */
+async function searchPhoton(text) {
+  if (!text.trim()) return [];
+
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=6`;
+  const result = await fetch(url).then(r => r.json());
+  return result.features || [];
+}
+
+function bindAutocomplete(inputId, boxId, isOrigin) {
+  const input = document.getElementById(inputId);
+  const box = document.getElementById(boxId);
+
+  input.addEventListener("input", async () => {
+    const text = input.value.trim();
+    if (!text) {
+      box.innerHTML = "";
+      return;
+    }
+
+    const items = await searchPhoton(text);
+    box.innerHTML = "";
+
+    items.forEach(f => {
+      const div = document.createElement("div");
+      div.className = "suggestion";
+      div.textContent = f.properties.name + ", " + (f.properties.city || "");
+
+      div.onclick = () => {
+        const [lon, lat] = f.geometry.coordinates;
+        input.value = `${lat},${lon}`;
+
+        if (isOrigin) {
+          if (originMarker) map.removeLayer(originMarker);
+          originMarker = L.marker([lat, lon]).addTo(map);
+          map.setView([lat, lon], 14);
+        } else {
+          if (destinationMarker) map.removeLayer(destinationMarker);
+          destinationMarker = L.marker([lat, lon]).addTo(map);
+        }
+
+        box.innerHTML = "";
+      };
+      box.appendChild(div);
+    });
+  });
+}
+
+bindAutocomplete("origin", "autocomplete-origin", true);
+bindAutocomplete("destination", "autocomplete-destination", false);
+
+document.getElementById("datetime").value = new Date().toISOString().slice(0,16);
+
+/* =============================
+   CALL BACKEND
+   ============================= */
+async function getLuckyRoutes() {
+  const origin = document.getElementById("origin").value.trim();
+  const destination = document.getElementById("destination").value.trim();
+  const birthYear = Number(document.getElementById("birthYear").value);
+  const gender = document.getElementById("gender").value;
+  const vehicle = document.getElementById("vehicle").value;
+  const datetime = document.getElementById("datetime").value;
+
+  if (!origin || !destination || !birthYear) {
+    alert("Vui lòng nhập đầy đủ thông tin");
+    return;
+  }
+
+  const [olat, olng] = origin.split(",");
+  const [dlat, dlng] = destination.split(",");
+
+  const body = {
+    origin: { lat: Number(olat), lng: Number(olng) },
+    destination: { lat: Number(dlat), lng: Number(dlng) },
+    birthYear,
+    gender,
+    vehicle,
+    datetime
+  };
+
+  const res = await fetch("/api/lucky-routes", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  renderResults(data);
+}
+
+/* =============================
+   RENDER RESULTS
+   ============================= */
+function renderResults(data) {
+  const box = document.getElementById("results");
+  box.innerHTML = "";
+
+  if (!data.routes) {
+    box.innerHTML = "<b>Không tìm thấy đường.</b>";
+    return;
+  }
+
+  data.routes.forEach((r, i) => {
+    const div = document.createElement("div");
+    div.className = "route-box" + (i === 0 ? " best-route" : "");
+
+    div.innerHTML = `
+      <b>Tuyến #${i+1}</b><br>
+      Lucky Point: <b>${r.luckyPoint}</b><br>
+      Quãng đường: ${(r.distance/1000).toFixed(2)} km<br>
+      Thời gian: ${(r.duration/60).toFixed(0)} phút<br><br>
+      <button onclick='openGoogleMaps(${JSON.stringify(r.geometry.coordinates)})'>
+        Mở Google Maps
+      </button>
+    `;
+
+    box.appendChild(div);
+  });
+}
+
+/* =============================
+   GOOGLE MAPS NAVIGATION
+   ============================= */
+function openGoogleMaps(coords) {
+  const s = coords[0];
+  const e = coords[coords.length-1];
+
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${s[1]},${s[0]}&destination=${e[1]},${e[0]}`;
+  window.open(url, "_blank");
+}
+
+</script>
+</body>
+</html>

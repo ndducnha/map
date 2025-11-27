@@ -1,0 +1,16 @@
+{
+  "name": "luckymap",
+  "version": "1.0.0",
+  "description": "Lucky Map - Feng Shui Route Calculator",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "lunar-javascript": "^1.7.7",
+    "node-fetch": "^3.3.0"
+  }
+}

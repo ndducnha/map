@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lucky Map – Đường đi may mắn</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary-green: #1a5f3a;
+      --primary-green-dark: #0f3d24;
+      --primary-green-light: #2d7a4f;
+      --accent-green: #52b788;
+      --accent-light: #74c69d;
+      --bg-light: #f8faf9;
+      --bg-white: #ffffff;
+      --text-dark: #1b4332;
+      --text-medium: #2d6a4f;
+      --text-light: #74c69d;
+      --border-color: #d8f3dc;
+      --shadow: rgba(26, 95, 58, 0.1);
+      --shadow-medium: rgba(26, 95, 58, 0.15);
+      --shadow-strong: rgba(26, 95, 58, 0.25);
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+      background: linear-gradient(135deg, #f8faf9 0%, #e8f5e9 100%);
+      color: var(--text-dark);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #container {
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 0;
+      padding-bottom: 20px;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-light) 100%);
+      color: white;
+      padding: 20px 16px;
+      text-align: center;
+      box-shadow: 0 4px 12px var(--shadow-medium);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .header p {
+      font-size: 13px;
+      margin: 6px 0 0;
+      opacity: 0.9;
+      font-weight: 400;
+    }
+
+    .header-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+
+    /* Form Section */
+    .form-section {
+      background: var(--bg-white);
+      padding: 20px 16px;
+      margin: 16px;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .form-row {
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .form-row:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-medium);
+      margin-bottom: 8px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 16px;
+      border-radius: 12px;
+      border: 2px solid var(--border-color);
+      background: var(--bg-light);
+      color: var(--text-dark);
+      transition: all 0.3s ease;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent-green);
+      background: var(--bg-white);
+      box-shadow: 0 0 0 4px rgba(82, 183, 136, 0.1);
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%231a5f3a' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 44px;
+    }
+
+    /* Autocomplete */
+    .autocomplete-box {
+      position: absolute;
+      background: white;
+      border: 2px solid var(--accent-light);
+      width: 100%;
+      max-height: 240px;
+      overflow-y: auto;
+      border-radius: 12px;
+      z-index: 9999;
+      top: calc(100% + 4px);
+      display: none;
+      box-shadow: 0 8px 24px var(--shadow-medium);
+    }
+
+    .suggestion {
+      padding: 14px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-color);
+      transition: background 0.2s ease;
+      font-size: 14px;
+    }
+
+    .suggestion:last-child {
+      border-bottom: none;
+    }
+
+    .suggestion:hover {
+      background: var(--bg-light);
+    }
+
+    .suggestion:active {
+      background: var(--accent-light);
+      color: white;
+    }
+
+    /* Button */
+    .btn-primary {
+      width: 100%;
+      padding: 16px 24px;
+      font-size: 17px;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-light) 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(82, 183, 136, 0.3);
+      margin-top: 8px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(82, 183, 136, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Map Section */
+    .map-section {
+      margin: 16px;
+      background: var(--bg-white);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .section-title {
+      padding: 16px;
+      background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-light) 100%);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    #map {
+      width: 100%;
+      height: 380px;
+      border: none;
+    }
+
+    /* Results Section */
+    .results-section {
+      margin: 16px;
+    }
+
+    .route-card {
+      background: var(--bg-white);
+      padding: 16px;
+      margin-bottom: 12px;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px var(--shadow);
+      border-left: 4px solid var(--accent-green);
+      transition: all 0.3s ease;
+    }
+
+    .route-card:hover {
+      box-shadow: 0 4px 16px var(--shadow-medium);
+      transform: translateY(-2px);
+    }
+
+    .route-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .route-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 2px 6px var(--shadow);
+    }
+
+    .lucky-score {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary-green);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .lucky-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      object-fit: cover;
+    }
+
+    .route-meta {
+      display: flex;
+      gap: 16px;
+      margin: 12px 0;
+      font-size: 14px;
+      color: var(--text-medium);
+      flex-wrap: wrap;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meta-label {
+      font-weight: 500;
+    }
+
+    .meta-value {
+      font-weight: 600;
+      color: var(--primary-green);
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 12px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--bg-light);
+      color: var(--primary-green);
+      border: 2px solid var(--accent-green);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 8px;
+    }
+
+    .btn-secondary:hover {
+      background: var(--accent-green);
+      color: white;
+    }
+
+    /* Loading Overlay */
+    #loadingOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 95, 58, 0.15);
+      backdrop-filter: blur(4px);
+      z-index: 99999;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    #loadingCard {
+      background: var(--bg-white);
+      border-radius: 20px;
+      padding: 24px;
+      width: min(400px, 100%);
+      box-shadow: 0 12px 40px var(--shadow-strong);
+    }
+
+    #loadingTop {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    #spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border-color);
+      border-top-color: var(--accent-green);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex: 0 0 auto;
+    }
+
+    #loadingTitle {
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text-dark);
+      line-height: 1.3;
+    }
+
+    #loadingSub {
+      font-size: 13px;
+      color: var(--text-medium);
+      margin-top: 4px;
+    }
+
+    #progressWrap {
+      width: 100%;
+      height: 12px;
+      background: var(--bg-light);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 16px 0 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent-green) 0%, var(--accent-light) 100%);
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    #stepList {
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+      font-size: 14px;
+      color: var(--text-dark);
+    }
+
+    #stepList li {
+      padding: 10px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--border-color);
+      flex: 0 0 auto;
+      transition: all 0.3s ease;
+    }
+
+    .active .dot {
+      background: var(--accent-green);
+      box-shadow: 0 0 0 4px rgba(82, 183, 136, 0.2);
+    }
+
+    .done .dot {
+      background: var(--primary-green);
+    }
+
+    .muted {
+      color: var(--text-medium);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-medium);
+    }
+
+    .empty-logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+      border-radius: 12px;
+      object-fit: cover;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (min-width: 768px) {
+      #container {
+        max-width: 640px;
+      }
+
+      .header h1 {
+        font-size: 28px;
+      }
+
+      #map {
+        height: 440px;
+      }
+    }
+
+    /* iOS Safari fixes */
+    @supports (-webkit-touch-callout: none) {
+      input, select {
+        font-size: 16px; /* Prevent zoom on focus */
+      }
+    }
+
+  /* ===== Note for users ===== */
+  .note-section{
+    margin: 16px;
+    background: var(--bg-white);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 8px var(--shadow);
+    border: 1px solid rgba(82, 183, 136, 0.35);
+  }
+  .note-title{
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .note-body{
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text-medium);
+  }
+  .note-body p{ margin: 0 0 10px; }
+  .note-body ul{ margin: 8px 0 0 18px; padding: 0; }
+  .note-body li{ margin: 6px 0; }
+  .note-body b{ color: var(--text-dark); }
+  .note-body a{
+    color: var(--primary-green);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .note-body a:hover{ text-decoration: underline; }
+  .note-pill{
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: rgba(82, 183, 136, 0.12);
+    border: 1px solid rgba(82, 183, 136, 0.25);
+    color: var(--text-dark);
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+
+  </style>
+</head>
+
+<body>
+<div id="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>
+      <img src="logo.jpg" alt="VCyber Logo" class="header-logo">
+      Lucky Map
+    </h1>
+    <p>Tìm đường đi may mắn theo cổ học Phương Đông</p>
+  </div>
+
+  <!-- Form Section -->
+  <div class="form-section">
+    <div class="form-row">
+      <label>Điểm đi</label>
+      <input id="origin" placeholder="Nhập địa điểm xuất phát..." autocomplete="off">
+      <div id="autocomplete-origin" class="autocomplete-box"></div>
+    </div>
+
+    <div class="form-row">
+      <label>Điểm đến</label>
+      <input id="destination" placeholder="Nhập địa điểm đích..." autocomplete="off">
+      <div id="autocomplete-destination" class="autocomplete-box"></div>
+    </div>
+
+    <div class="form-row">
+      <label>Năm sinh</label>
+      <input id="birthYear" type="number" placeholder="VD: 1995">
+    </div>
+
+    <div class="form-row">
+      <label>Giới tính</label>
+      <select id="gender">
+        <option value="male">Nam</option>
+        <option value="female">Nữ</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>Phương tiện</label>
+      <select id="vehicle">
+        <option value="driving">Xe máy / Ô tô</option>
+        <option value="foot">Đi bộ</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>Thời điểm xuất phát (GMT+7)</label>
+      <input id="datetime" type="datetime-local">
+    </div>
+
+    <button class="btn-primary" id="btnRun" onclick="getLuckyRoutes()">
+      Tìm tuyến đường may mắn
+    </button>
+  </div>
+
+  <!-- Map Section -->
+  <div class="map-section">
+    <h3 class="section-title">Bản đồ</h3>
+    <div id="map"></div>
+  </div>
+
+  <!-- Results Section -->
+  <div class="results-section">
+    <div id="results"></div>
+  </div>
+
+  <!-- Note Section -->
+  <div class="note-section">
+    <div class="note-title">ℹ️ Lưu ý cho người dùng</div>
+
+    <div class="note-body">
+      <p>
+        Có một số địa chỉ không hiển thị chính xác <b>số nhà</b> do hạn chế về dữ liệu và quyền riêng tư.
+        Bạn có thể tìm <b>địa chỉ gần đó</b>, mục tiêu chính là biết được <b>hướng</b> để đi.
+      </p>
+
+      <p>
+        Nếu cần đi chi tiết, bạn có thể bấm vào nút
+        <span class="note-pill">Dẫn đường với Google Maps</span>
+        để đi đúng lộ trình với <b>9 bước phi tinh</b>.
+      </p>
+
+      <p>
+        Thuật toán tính toán chi tiết dựa vào nhiều yếu tố từ <b>năm sinh</b>, <b>giới tính</b>,
+        <b>thời điểm xuất phát</b>, <b>vị trí</b>... nên bạn có thể thay đổi các thông số để tìm thời điểm thích hợp
+        có điểm số may mắn nhất mà khởi hành.
+      </p>
+
+      <p><b>Tip nhỏ:</b></p>
+      <ul>
+        <li>
+          Nếu không thể thay đổi thời gian, hãy thử tìm <b>1 địa điểm phụ</b> có chỉ số may mắn cao đến điểm đích.
+        </li>
+        <li>
+          Đi đến điểm phụ khoảng <b>15–20 phút</b> để “thay đổi lộ trình gốc”, từ đó dễ tìm ra cung đường may mắn hơn.
+        </li>
+      </ul>
+
+      <p style="margin-top:10px;">
+        Mọi đóng góp hay sửa lỗi xin liên hệ đội ngũ phát triển:
+        <a href="mailto:ndducnha@gmail.com">ndducnha@gmail.com</a>
+      </p>
+    </div>
+  </div>
+
+
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+  <div id="loadingCard">
+    <div id="loadingTop">
+      <div id="spinner"></div>
+      <div>
+        <div id="loadingTitle">Đang xử lý...</div>
+        <div id="loadingSub" class="muted">Vui lòng chờ một chút</div>
+      </div>
+    </div>
+
+    <div id="progressWrap">
+      <div id="progressBar"></div>
+    </div>
+
+    <ul id="stepList">
+      <li id="s1"><span class="dot"></span><span>Đang tìm tuyến đường đi</span></li>
+      <li id="s2"><span class="dot"></span><span>Đang phân tích thuật toán cổ học</span></li>
+      <li id="s3"><span class="dot"></span><span>Đang chấm điểm các tuyến đường</span></li>
+      <li id="s4"><span class="dot"></span><span>Đang phân tích kết quả</span></li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  // ========================
+  // MAP INITIALIZATION
+  // ========================
+  const map = L.map("map").setView([10.776530, 106.700981], 13);
+  // L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  //   maxZoom: 19,
+  //   attribution: '&copy; OpenStreetMap contributors'
+  // }).addTo(map);
+
+  // Google-like blue/modern style (CARTO Voyager)
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    maxZoom: 20,
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+  }).addTo(map);
+
+  let originMarker = null;
+  let destinationMarker = null;
+  window.routeLayers = [];
+
+  function _pad2(n) { return String(n).padStart(2, "0"); }
+
+  // GMT+7 fill
+  function nowGmt7DatetimeLocalValue() {
+    const vn = new Date(Date.now() + 7 * 3600000);
+    return (
+      vn.getUTCFullYear() + "-" +
+      _pad2(vn.getUTCMonth() + 1) + "-" +
+      _pad2(vn.getUTCDate()) + "T" +
+      _pad2(vn.getUTCHours()) + ":" +
+      _pad2(vn.getUTCMinutes())
+    );
+  }
+  document.getElementById("datetime").value = nowGmt7DatetimeLocalValue();
+
+  const RANK_COLORS = ["#095f07", "#39d552", "#2045cb", "#8020cb", "#f0ff42"];
+
+  // ========================
+  // PROGRESS OVERLAY
+  // ========================
+  let progressTimer = null;
+  let currentStep = 0;
+
+  const STEPS = [
+    "Đang tìm tuyến đường đi",
+    "Đang phân tích thuật toán cổ học",
+    "Đang chấm điểm phong thủy",
+    "Đang sắp xếp kết quả",
+  ];
+
+  function setLoading(isLoading) {
+    const overlay = document.getElementById("loadingOverlay");
+    const btn = document.getElementById("btnRun");
+    if (overlay) overlay.style.display = isLoading ? "flex" : "none";
+    if (btn) {
+      btn.disabled = isLoading;
+      btn.textContent = isLoading ? "Đang tính toán..." : "Tìm tuyến đường may mắn";
+    }
+  }
+
+  function setStep(step) {
+    currentStep = Math.max(1, Math.min(4, step));
+    const title = document.getElementById("loadingTitle");
+    const sub = document.getElementById("loadingSub");
+    if (title) title.textContent = STEPS[currentStep - 1];
+    if (sub) sub.textContent = currentStep < 4 ? "Đang xử lý, vui lòng chờ..." : "Sắp xong...";
+
+    for (let i = 1; i <= 4; i++) {
+      const li = document.getElementById("s" + i);
+      if (!li) continue;
+      li.classList.remove("active", "done");
+      if (i < currentStep) li.classList.add("done");
+      else if (i === currentStep) li.classList.add("active");
+    }
+
+    const bar = document.getElementById("progressBar");
+    if (bar) bar.style.width = (currentStep * 25) + "%";
+  }
+
+  function startProgress() {
+    stopProgress();
+    setStep(1);
+    progressTimer = setInterval(() => {
+      if (currentStep < 4) setStep(currentStep + 1);
+    }, 900);
+  }
+
+  function stopProgress() {
+    if (progressTimer) clearInterval(progressTimer);
+    progressTimer = null;
+  }
+
+  // ========================
+  // AUTOCOMPLETE
+  // ========================
+  const AUTO_MIN_CHARS = 3;
+  const AUTO_CACHE_MS = 10 * 60 * 1000;
+  const _autoCache = new Map();
+  let _searchAbort = null;
+
+  function _cacheSet(key, v) {
+    _autoCache.set(key, { t: Date.now(), v });
+    if (_autoCache.size > 250) _autoCache.delete(_autoCache.keys().next().value);
+  }
+
+  async function nominatimSearch(q) {
+    const url =
+      `https://nominatim.openstreetmap.org/search?format=jsonv2` +
+      `&q=${encodeURIComponent(q)}` +
+      `&limit=6&dedupe=1&addressdetails=0&accept-language=vi` +
+      `&countrycodes=vn` +
+      `&viewbox=102.144,23.392,109.469,8.179&bounded=1`;
+
+    if (_searchAbort) _searchAbort.abort();
+    const ctrl = new AbortController();
+    _searchAbort = ctrl;
+
+    const timer = setTimeout(() => ctrl.abort(), 3500);
+
+    try {
+      const resp = await fetch(url, {
+        signal: ctrl.signal,
+        headers: { "Accept": "application/json" }
+      });
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function searchPlaces(text) {
+    const q = (text || "").trim();
+    if (q.length < AUTO_MIN_CHARS) return [];
+
+    const key = "s:" + q.toLowerCase();
+    const now = Date.now();
+    const cached = _autoCache.get(key);
+    if (cached && (now - cached.t) < AUTO_CACHE_MS) return cached.v;
+
+    const arr = await nominatimSearch(q);
+    _cacheSet(key, arr);
+    return arr;
+  }
+
+  async function reversePlace(lat, lng) {
+    const key = `r:${lat.toFixed(5)},${lng.toFixed(5)}`;
+    const now = Date.now();
+    const cached = _autoCache.get(key);
+    if (cached && (now - cached.t) < AUTO_CACHE_MS) return cached.v;
+
+    const url =
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2` +
+      `&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}` +
+      `&zoom=18&addressdetails=0&accept-language=vi`;
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3500);
+
+    try {
+      const resp = await fetch(url, { signal: ctrl.signal, headers: { "Accept": "application/json" }});
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const name = data && data.display_name ? data.display_name : null;
+      _cacheSet(key, name);
+      return name;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function bindAutocompleteNominatim(inputId, boxId, isOrigin) {
+    const input = document.getElementById(inputId);
+    const box = document.getElementById(boxId);
+
+    let debounceTimer = null;
+    let seq = 0;
+
+    const hideBox = () => { box.innerHTML = ""; box.style.display = "none"; };
+    const showBox = () => { box.style.display = "block"; };
+
+    input.addEventListener("input", () => {
+      const q = input.value.trim();
+      input.dataset.lat = "";
+      input.dataset.lng = "";
+
+      clearTimeout(debounceTimer);
+
+      if (!q || q.length < AUTO_MIN_CHARS) { hideBox(); return; }
+
+      box.innerHTML = `<div class="suggestion" style="color:#666; font-style:italic; cursor:default;">Đang tìm...</div>`;
+      showBox();
+
+      const mySeq = ++seq;
+
+      debounceTimer = setTimeout(async () => {
+        const items = await searchPlaces(q);
+        if (mySeq !== seq) return;
+
+        box.innerHTML = "";
+        if (!items.length) {
+          box.innerHTML = `<div class="suggestion" style="color:#666; font-style:italic; cursor:default;">Không tìm thấy</div>`;
+          showBox();
+          return;
+        }
+
+        items.forEach((it) => {
+          const div = document.createElement("div");
+          div.className = "suggestion";
+          div.textContent = it.display_name || "Không rõ";
+
+          div.onmousedown = (e) => {
+            e.preventDefault();
+
+            const lat = parseFloat(it.lat);
+            const lon = parseFloat(it.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+            input.value = it.display_name || `${lat.toFixed(6)},${lon.toFixed(6)}`;
+            input.dataset.lat = lat;
+            input.dataset.lng = lon;
+
+            if (isOrigin) {
+              if (originMarker) map.removeLayer(originMarker);
+              originMarker = L.marker([lat, lon]).addTo(map);
+            } else {
+              if (destinationMarker) map.removeLayer(destinationMarker);
+              destinationMarker = L.marker([lat, lon]).addTo(map);
+            }
+
+            hideBox();
+            map.setView([lat, lon], 15);
+          };
+
+          box.appendChild(div);
+        });
+
+        showBox();
+      }, 220);
+    });
+
+    input.addEventListener("focus", () => {
+      if (box.innerHTML.trim()) showBox();
+    });
+
+    input.addEventListener("blur", () => setTimeout(hideBox, 150));
+  }
+
+  bindAutocompleteNominatim("origin", "autocomplete-origin", true);
+  bindAutocompleteNominatim("destination", "autocomplete-destination", false);
+
+  // Click map to select points
+  map.on("click", async (e) => {
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+    const addr = await reversePlace(lat, lng);
+
+    if (!originMarker) {
+      originMarker = L.marker(e.latlng).addTo(map);
+      const o = document.getElementById("origin");
+      o.dataset.lat = lat; o.dataset.lng = lng;
+      o.value = addr || `${lat.toFixed(6)},${lng.toFixed(6)}`;
+    } else if (!destinationMarker) {
+      destinationMarker = L.marker(e.latlng).addTo(map);
+      const d = document.getElementById("destination");
+      d.dataset.lat = lat; d.dataset.lng = lng;
+      d.value = addr || `${lat.toFixed(6)},${lng.toFixed(6)}`;
+    } else {
+      map.removeLayer(originMarker);
+      map.removeLayer(destinationMarker);
+      originMarker = L.marker(e.latlng).addTo(map);
+      destinationMarker = null;
+
+      const o = document.getElementById("origin");
+      o.dataset.lat = lat; o.dataset.lng = lng;
+      o.value = addr || `${lat.toFixed(6)},${lng.toFixed(6)}`;
+
+      const d = document.getElementById("destination");
+      d.value = ""; d.dataset.lat = ""; d.dataset.lng = "";
+    }
+  });
+
+  // ========================
+  // GOOGLE MAPS ROUTE
+  // ========================
+  function openGoogleMapsRoute(coords) {
+    if (!coords || coords.length < 2) return;
+
+    const WAYPOINTS = 9;
+    const totalPoints = WAYPOINTS + 2;
+    const step = Math.max(1, Math.floor(coords.length / totalPoints));
+
+    const sampled = [];
+    for (let i = 0; i < coords.length; i += step) sampled.push(coords[i]);
+    if (sampled[sampled.length - 1] !== coords[coords.length - 1]) sampled.push(coords[coords.length - 1]);
+
+    const s = sampled[0];
+    const e = sampled[sampled.length - 1];
+
+    let mids = sampled.slice(1, -1);
+    if (mids.length > WAYPOINTS) {
+      const k = Math.max(1, Math.floor(mids.length / WAYPOINTS));
+      mids = mids.filter((_, i) => i % k === 0).slice(0, WAYPOINTS);
+    }
+
+    const wp = mids.map(p => `${p[1]},${p[0]}`).join("|");
+
+    const url =
+      `https://www.google.com/maps/dir/?api=1` +
+      `&origin=${s[1]},${s[0]}` +
+      `&destination=${e[1]},${e[0]}` +
+      (wp ? `&waypoints=${wp}` : "");
+
+    window.open(url, "_blank");
+  }
+
+  function clearRoutes() {
+    window.routeLayers.forEach(l => map.removeLayer(l));
+    window.routeLayers = [];
+  }
+
+  function renderRoutes(data) {
+    const box = document.getElementById("results");
+    box.innerHTML = "";
+    clearRoutes();
+
+    const routes = data.routes || [];
+    if (!routes.length) {
+      box.innerHTML = `
+        <div class="form-section empty-state">
+          <img src="logo.jpg" alt="VCyber" class="empty-logo">
+          <p style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Không tìm thấy đường</p>
+          <p style="font-size: 14px;">Vui lòng thử lại với địa điểm khác</p>
+        </div>
+      `;
+      return;
+    }
+
+    routes.forEach((r, i) => {
+      const color = RANK_COLORS[i] || "#333";
+      const lucky = (typeof r.luckyPoint === "number") ? r.luckyPoint.toFixed(2) : r.luckyPoint;
+
+      const div = document.createElement("div");
+      div.className = "route-card";
+      div.innerHTML = `
+        <div class="route-header">
+          <span class="route-badge" style="background:${color}">Tuyến #${i+1}</span>
+          <div class="lucky-score">
+            <img src="co4la.png" alt="Lucky" class="lucky-icon">
+            Chỉ số may mắn: ${lucky}
+          </div>
+        </div>
+        <div class="route-meta">
+          <div class="meta-item">
+            <span class="meta-label">Quãng đường:</span>
+            <span class="meta-value">${(r.distance/1000).toFixed(2)} km</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Thời gian:</span>
+            <span class="meta-value">${(r.duration/60).toFixed(0)} phút</span>
+          </div>
+        </div>
+        <button class="btn-secondary" onclick='openGoogleMapsRoute(${JSON.stringify(r.geometry.coordinates)})'>
+          Dẫn đường với Google Maps
+        </button>
+      `;
+      box.appendChild(div);
+
+      const poly = L.polyline(
+        r.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
+        { color, weight: 6, opacity: 0.9 }
+      ).addTo(map);
+
+      window.routeLayers.push(poly);
+    });
+
+    let b = window.routeLayers[0].getBounds();
+    window.routeLayers.forEach(l => b.extend(l.getBounds()));
+    map.fitBounds(b);
+  }
+
+  async function getLuckyRoutes() {
+    const o = document.getElementById("origin");
+    const d = document.getElementById("destination");
+
+    if (!o.dataset.lat || !d.dataset.lat) {
+      alert("Vui lòng chọn địa chỉ (từ gợi ý) hoặc click trên bản đồ.");
+      return;
+    }
+
+    const birthYear = Number(document.getElementById("birthYear").value);
+    if (!birthYear) {
+      alert("Vui lòng nhập năm sinh.");
+      return;
+    }
+
+    const body = {
+      origin: { lat: Number(o.dataset.lat), lng: Number(o.dataset.lng) },
+      destination: { lat: Number(d.dataset.lat), lng: Number(d.dataset.lng) },
+      birthYear,
+      gender: document.getElementById("gender").value,
+      vehicle: document.getElementById("vehicle").value,
+      datetime: document.getElementById("datetime").value
+    };
+
+    setLoading(true);
+    startProgress();
+
+    try {
+      const res = await fetch("/api/lucky-routes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (currentStep < 3) setStep(3);
+      setStep(4);
+
+      renderRoutes(data);
+    } catch (e) {
+      console.error(e);
+      alert("Có lỗi khi tính toán tuyến. Vui lòng thử lại.");
+    } finally {
+      stopProgress();
+      setLoading(false);
+    }
+  }
+</script>
+
+</body>
+</html>
